@@ -6,11 +6,18 @@
 #[macro_use]
 extern crate serde_json;
 use cln_plugin::{options, Builder, Error, Plugin};
+
+
+// Try RPC Connectivity
+use cln_rpc::{model::GetinfoRequest, ClnRpc, Request};
+use tonic::{Code, Status};
+
+use std::path::{Path, PathBuf};
+
+
 use anyhow::{anyhow, Context, Result};
 use tokio;
 use ceebalancer::{Config};
-
-
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -44,6 +51,8 @@ async fn main() -> Result<(), anyhow::Error> {
     {
         load_configuration(&plugin).unwrap();
 
+        initialize_balances(&plugin).await.unwrap();
+
         plugin.join().await
     } else {
         Ok(())
@@ -51,7 +60,7 @@ async fn main() -> Result<(), anyhow::Error> {
 }
 
 fn load_configuration(plugin: &Plugin<()>) -> Result<(), Error> {
-    let mut c = Config::default();
+    let c = Config::default();
 
     let dynamic_fees = match plugin.option("dynamic-fees") {
         Some(options::Value::Boolean(false)) => {
@@ -90,14 +99,23 @@ fn load_configuration(plugin: &Plugin<()>) -> Result<(), Error> {
         dynamic_fee_min,
         dynamic_fee_max,
     }.make_current();
-
-    dbg!(Config::current());
+    log::info!("Configuration loaded: {:?}", Config::current());
     Ok(())
 }
 
-async fn init_handler(_p: Plugin<()>, _v: serde_json::Value) -> Result<(), Error> {
-    log::debug!("Received the init handler");
+async fn initialize_balances(plugin: &Plugin<()>) -> Result<(), Error> {
+    log::debug!("Initializing balances");
+
+    let path = Path::new("lightning-rpc");
+
+    let mut rpc = ClnRpc::new(path).await?;
+    let response = rpc
+        .call(Request::Getinfo(GetinfoRequest {}))
+        .await
+        .map_err(|e| anyhow!("Error calling getinfo: {:?}", e))?;
+    println!("{}", serde_json::to_string_pretty(&response)?);
     Ok(())
+
 }
 
 async fn forward_handler(_p: Plugin<()>, v: serde_json::Value) -> Result<(), Error> {
