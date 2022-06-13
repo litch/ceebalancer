@@ -5,19 +5,22 @@
 
 #[macro_use]
 extern crate serde_json;
+use serde::{Deserialize, Serialize};
 use cln_plugin::{options, Builder, Error, Plugin};
 
 
 // Try RPC Connectivity
 use cln_rpc::{model::GetinfoRequest, ClnRpc, Request};
-use tonic::{Code, Status};
-
-use std::path::{Path, PathBuf};
-
-
+use std::path::{Path};
 use anyhow::{anyhow, Context, Result};
 use tokio;
-use ceebalancer::{Config};
+
+use ceebalancer::{Config, get_info, onchain_balance, report_onchain};
+use ceebalancer::primitives::Amount;
+// My stuff
+
+
+
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -45,13 +48,15 @@ async fn main() -> Result<(), anyhow::Error> {
         ))
         
         .subscribe("forward_event", forward_handler)
-        
+        .subscribe("coin_movement", coin_movement_handler)
         .start()
         .await?
     {
         load_configuration(&plugin).unwrap();
 
-        initialize_balances(&plugin).await.unwrap();
+        test_get_info(&plugin).await.unwrap();
+
+        report_onchain(0).await.unwrap();
 
         plugin.join().await
     } else {
@@ -103,30 +108,52 @@ fn load_configuration(plugin: &Plugin<()>) -> Result<(), Error> {
     Ok(())
 }
 
-async fn initialize_balances(plugin: &Plugin<()>) -> Result<(), Error> {
-    log::debug!("Initializing balances");
 
-    let path = Path::new("lightning-rpc");
 
-    let mut rpc = ClnRpc::new(path).await?;
-    let response = rpc
-        .call(Request::Getinfo(GetinfoRequest {}))
-        .await
-        .map_err(|e| anyhow!("Error calling getinfo: {:?}", e))?;
-    println!("{}", serde_json::to_string_pretty(&response)?);
+#[derive(Debug, Deserialize)]
+pub struct CoinMovementValue {
+    pub coin_movement: CoinMovementMovement,
+    
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CoinMovementMovement {
+    account_id: String,
+    blockheight: u16,
+    coin_type: String,
+    credit: Amount,
+    debit: Amount,
+    r#type: String,
+}
+
+
+
+async fn coin_movement_handler(_plugin: Plugin<()>, v: serde_json::Value) -> Result<(), Error> {
+    log::debug!("Received Coin Movement: {:?}", v);    
+    let de: CoinMovementValue = serde_json::from_value(v).unwrap();
+
+    log::debug!("Deserialized: {:?}", de);
+
+    let balance = onchain_balance().await.unwrap();
+    log::debug!("Onchain Balance: {}", balance);
+
+    report_onchain(balance).await;
+
+    log::debug!("Reported");
+
+    Ok(())
+}
+
+async fn test_get_info(_plugin: &Plugin<()>) -> Result<(), Error> {
+    log::debug!("Testing getinfo as a sanity check");
+    let info = get_info().await.unwrap();
+    log::info!("Got info: {}", info);
     Ok(())
 
 }
+
 
 async fn forward_handler(_p: Plugin<()>, v: serde_json::Value) -> Result<(), Error> {
     log::debug!("Got a forward notification: {}", v);
     Ok(())
-}
-
-async fn peer_connected_handler(
-    _p: Plugin<()>,
-    v: serde_json::Value,
-) -> Result<serde_json::Value, Error> {
-    log::info!("Got a connect hook call: {}", v);
-    Ok(json!({"result": "continue"}))
 }
