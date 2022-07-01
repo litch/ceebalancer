@@ -50,52 +50,43 @@ pub async fn get_info() -> Result<String, Error> {
     Ok(call(req).await?)
 }
 
-pub async fn list_channels() -> Result<Vec<wire::ListChannel>, Error> {
-    let req = Request::ListChannels(model::ListchannelsRequest { short_channel_id: None, source: None, destination: None });
-    let res = call(req).await.unwrap();
-    let de: wire::ListChannelsResponse = serde_json::from_str(&res).unwrap();
+// pub async fn list_channels() -> Result<Vec<wire::ListChannel>, Error> {
+//     let req = Request::ListChannels(model::ListchannelsRequest { short_channel_id: None, source: None, destination: None });
+//     let res = call(req).await.unwrap();
+//     let de: wire::ListChannelsResponse = serde_json::from_str(&res).unwrap();
     
-    Ok(de.result.channels)
-    // dbg!(res);
-}
+//     Ok(de.result.channels)
+//     // dbg!(res);
+// }
 
 pub async fn list_nodes() -> Result<(), Error> {
     let req = Request::ListNodes(model::ListnodesRequest {id: None});
     let res = call(req).await?;
     let de: wire::ListNodesResponse = serde_json::from_str(&res).unwrap();
-    // dbg!(de);
+    
     Ok(())
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ListFundsResponse {
-    method: String,
-    result: ListFundsResponseFunds
-}
+pub async fn list_channels() -> Result<Vec<wire::Channel>, Error> {
+    let req = Request::ListFunds(model::ListfundsRequest { spent: Some(false)});
+    let res = call(req).await?;
+    log::debug!("{}", &res);
 
-#[derive(Debug, Deserialize)]
-pub struct ListFundsResponseFunds {
-    outputs: Vec<Output>
+    let de: wire::ListFundsResponse = serde_json::from_str(&res).unwrap();
+    
+    Ok(de.result.channels)
 }
-
-#[derive(Debug, Deserialize)]
-pub struct Output {
-    txid: String,
-    amount_msat: primitives::Amount,
-    status: String,
-}
-
 
 pub async fn onchain_balance() -> Result<u64, Error> {
     let req = Request::ListFunds(model::ListfundsRequest { spent: Some(false)});
     let res = call(req).await?;
-    let de: ListFundsResponse = serde_json::from_str(&res).unwrap();
+    let de: wire::ListFundsResponse = serde_json::from_str(&res).unwrap();
 
     let mut total = 0;
     for output in de.result.outputs {
         total += output.amount_msat.msat();
     }
-
+    
     Ok(total)
 }
 
@@ -121,13 +112,175 @@ pub async fn report_onchain(balance: u64) -> Result<(), Error> {
     Ok(())
 }
 
+pub async fn calculate_fee_target(channel: wire::Channel) -> Result<u64, Error> {
+    let ours: f64 = channel.our_amount_msat.msat() as f64; 
+    let total: f64 = channel.amount_msat.msat() as f64;
+    let proportion = 1.0 - (ours / total);
+
+    let min_threshold_ratio = 0.2;
+    let max_threshold_ratio = 0.8;
+
+    let max: f64 = Config::current().dynamic_fee_max as f64;
+    let min: f64 = Config::current().dynamic_fee_min as f64;
+
+    let range = max - min;
+
+    let target = if proportion <= min_threshold_ratio {
+        min
+    } else if proportion >= max_threshold_ratio {
+        max
+    } else { 
+        let nom = proportion - min_threshold_ratio;
+        let denom = max_threshold_ratio - min_threshold_ratio;
+        ((nom / denom) * range) + min
+    };
+    
+    Ok(target.round() as u64)
+}
+
 
 #[cfg(test)]
 mod test {
     use super::*;
-
-
     use serde_json::json;
+
+    #[tokio::test]
+    async fn test_calculate_balanced_channel() {
+        Config {
+            dynamic_fees: true,
+            dynamic_fee_min: 10,
+            dynamic_fee_max: 500,
+        }.make_current();
+
+        let c = wire::Channel {
+            amount_msat: primitives::Amount {msat: 1000000},
+            our_amount_msat: primitives::Amount {msat: 500000},
+            connected: true,
+            peer_id: "039b9e260863e6d8735325b286931d73be9f8e766970ad4fe1cbcc470cd8964635".to_string(),
+            state: wire::ChannelState::CHANNELD_NORMAL,
+            funding_txid: "724ee70bc1670368c3db3c2ebed30d00fa595774356cebf509196c68a471ca91".to_string(),
+            funding_output: 0,
+        };
+
+        let target = calculate_fee_target(c).await.unwrap();
+        assert_eq!(target, 255)   
+        
+    }
+
+    #[tokio::test]
+    async fn calculate_locally_imbalanced_channel() {
+        Config {
+            dynamic_fees: true,
+            dynamic_fee_min: 10,
+            dynamic_fee_max: 500,
+        }.make_current();
+
+        let c = wire::Channel {
+            amount_msat: primitives::Amount {msat: 1000000},
+            our_amount_msat: primitives::Amount {msat: 1000000},
+            connected: true,
+            peer_id: "039b9e260863e6d8735325b286931d73be9f8e766970ad4fe1cbcc470cd8964635".to_string(),
+            state: wire::ChannelState::CHANNELD_NORMAL,
+            funding_txid: "724ee70bc1670368c3db3c2ebed30d00fa595774356cebf509196c68a471ca91".to_string(),
+            funding_output: 0,
+        };
+
+        let target = calculate_fee_target(c).await.unwrap();
+        assert_eq!(target, 10)
+    }
+
+    
+    #[tokio::test]
+    async fn calculate_remotely_imbalanced_channel() {
+        Config {
+            dynamic_fees: true,
+            dynamic_fee_min: 10,
+            dynamic_fee_max: 500,
+        }.make_current();
+
+        let c = wire::Channel {
+            amount_msat: primitives::Amount {msat: 1000000},
+            our_amount_msat: primitives::Amount {msat: 0},
+            connected: true,
+            peer_id: "039b9e260863e6d8735325b286931d73be9f8e766970ad4fe1cbcc470cd8964635".to_string(),
+            state: wire::ChannelState::CHANNELD_NORMAL,
+            funding_txid: "724ee70bc1670368c3db3c2ebed30d00fa595774356cebf509196c68a471ca91".to_string(),
+            funding_output: 0,
+        };
+
+        let target = calculate_fee_target(c).await.unwrap();
+        assert_eq!(target, 500)
+    }
+
+    #[tokio::test]
+    async fn calculate_threshold_imbalanced_channel() {
+        Config {
+            dynamic_fees: true,
+            dynamic_fee_min: 10,
+            dynamic_fee_max: 500,
+        }.make_current();
+
+        let c = wire::Channel {
+            amount_msat: primitives::Amount {msat: 1_000_000},
+            our_amount_msat: primitives::Amount {msat: 200_000},
+            connected: true,
+            peer_id: "039b9e260863e6d8735325b286931d73be9f8e766970ad4fe1cbcc470cd8964635".to_string(),
+            state: wire::ChannelState::CHANNELD_NORMAL,
+            funding_txid: "724ee70bc1670368c3db3c2ebed30d00fa595774356cebf509196c68a471ca91".to_string(),
+            funding_output: 0,
+        };
+
+        let target = calculate_fee_target(c).await.unwrap();
+        assert_eq!(target, 500)
+    }
+
+
+    #[tokio::test]
+    async fn calculate_near_threshold_imbalanced_channel() {
+        Config {
+            dynamic_fees: true,
+            dynamic_fee_min: 10,
+            dynamic_fee_max: 500,
+        }.make_current();
+
+        let c = wire::Channel {
+            amount_msat: primitives::Amount {msat: 1_000_000},
+            our_amount_msat: primitives::Amount {msat: 205_000},
+            connected: true,
+            peer_id: "039b9e260863e6d8735325b286931d73be9f8e766970ad4fe1cbcc470cd8964635".to_string(),
+            state: wire::ChannelState::CHANNELD_NORMAL,
+            funding_txid: "724ee70bc1670368c3db3c2ebed30d00fa595774356cebf509196c68a471ca91".to_string(),
+            funding_output: 0,
+        };
+
+        let target = calculate_fee_target(c).await.unwrap();
+        assert_eq!(target, 496)
+    }
+
+    #[tokio::test]
+    async fn test_list_funds() {
+        let j = json!({
+            "method": "listfunds",
+            "result": {
+                "outputs": [],
+                "channels": [
+                   {
+                      "peer_id": "039b9e260863e6d8735325b286931d73be9f8e766970ad4fe1cbcc470cd8964635",
+                      "connected": true,
+                      "state": "CHANNELD_NORMAL",
+                      "short_channel_id": "206x5x0",
+                      "our_amount_msat": "4000000000msat",
+                      "amount_msat": "4000000000msat",
+                      "funding_txid": "724ee70bc1670368c3db3c2ebed30d00fa595774356cebf509196c68a471ca91",
+                      "funding_output": 0
+                   }
+                ]
+             }
+        });
+        let de: wire::ListFundsResponse = serde_json::from_value(j).unwrap();
+        assert_eq!(de.result.channels[0].amount_msat.msat(), 4000000000)   
+    }
+
 
     #[tokio::test]
     async fn test_list_channels() {
@@ -186,7 +339,7 @@ mod test {
                   "htlc_maximum_msat": "6930000000msat",
                   "features": ""
                 }]}});
-        let de: ListChannelsResponse = serde_json::from_value(j).unwrap();
+        let de: wire::ListChannelsResponse = serde_json::from_value(j).unwrap();
         assert_eq!(de.result.channels[0].amount_msat.msat(), 10000000000)
     }
 }

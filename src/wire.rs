@@ -61,3 +61,41 @@ pub struct OptionWillFund {
     pub channel_fee_max_proportional_thousandths: u32,
     pub compact_lease: String,
 }
+
+
+#[derive(Debug, Deserialize)]
+pub struct ListFundsResponse {
+    method: String,
+    pub result: ListFundsResponseFunds
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ListFundsResponseFunds {
+    pub outputs: Vec<Output>,
+    pub channels: Vec<Channel>
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Output {
+    pub txid: String,
+    pub amount_msat: Amount,
+    pub status: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub enum ChannelState {
+    CHANNELD_AWAITING_LOCKIN,
+    CHANNELD_NORMAL,
+
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Channel {
+    pub peer_id: String,
+    pub connected: bool,
+    pub state: ChannelState,
+    pub our_amount_msat: Amount,
+    pub amount_msat: Amount,
+    pub funding_txid: String,
+    pub funding_output: u32,
+}

@@ -9,7 +9,7 @@ use std::path::{Path};
 use anyhow::{anyhow, Context, Result};
 use tokio;
 
-use ceebalancer::{Config, get_info, onchain_balance, report_onchain};
+use ceebalancer::{Config, get_info, onchain_balance, report_onchain, list_channels};
 use ceebalancer::primitives::Amount;
 
 #[tokio::main]
@@ -41,7 +41,11 @@ async fn main() -> Result<(), anyhow::Error> {
 
         test_get_info(&plugin).await.unwrap();
 
-        report_onchain(0).await.unwrap();
+        let balance = onchain_balance().await.unwrap();
+        log::debug!("Onchain Balance: {}", balance);
+
+        let channels = list_channels().await.unwrap();
+        log::debug!("Channels: {:?}", channels);
 
         plugin.join().await
     } else {
@@ -93,8 +97,6 @@ fn load_configuration(plugin: &Plugin<()>) -> Result<(), Error> {
     Ok(())
 }
 
-
-
 #[derive(Debug, Deserialize)]
 pub struct CoinMovementValue {
     pub coin_movement: CoinMovementMovement,
@@ -111,8 +113,6 @@ pub struct CoinMovementMovement {
     r#type: String,
 }
 
-
-
 async fn coin_movement_handler(_plugin: Plugin<()>, v: serde_json::Value) -> Result<(), Error> {
     log::debug!("Received Coin Movement: {:?}", v);    
     let de: CoinMovementValue = serde_json::from_value(v).unwrap();
@@ -122,9 +122,9 @@ async fn coin_movement_handler(_plugin: Plugin<()>, v: serde_json::Value) -> Res
     let balance = onchain_balance().await.unwrap();
     log::debug!("Onchain Balance: {}", balance);
 
-    report_onchain(balance).await;
+    // report_onchain(balance).await;
 
-    log::debug!("Reported");
+    // log::debug!("Reported");
 
     Ok(())
 }
