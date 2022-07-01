@@ -164,97 +164,38 @@ mod test {
 
         let target = calculate_fee_target(c).await.unwrap();
         assert_eq!(target, 255)   
-        
     }
 
     #[tokio::test]
-    async fn calculate_locally_imbalanced_channel() {
+    async fn calculate_imbalanced_channel() {
         Config {
             dynamic_fees: true,
             dynamic_fee_min: 10,
             dynamic_fee_max: 500,
         }.make_current();
 
-        let c = wire::Channel {
-            amount_msat: primitives::Amount {msat: 1000000},
-            our_amount_msat: primitives::Amount {msat: 1000000},
-            connected: true,
-            peer_id: "039b9e260863e6d8735325b286931d73be9f8e766970ad4fe1cbcc470cd8964635".to_string(),
-            state: wire::ChannelState::CHANNELD_NORMAL,
-            funding_txid: "724ee70bc1670368c3db3c2ebed30d00fa595774356cebf509196c68a471ca91".to_string(),
-            funding_output: 0,
-        };
+        let test_cases = vec![
+            (1000, 1000, 10),
+            (1000, 0, 500),
+            (1000, 200, 500),
+            (1000, 205, 496),
+            (1000, 795, 14)
+        ];
 
-        let target = calculate_fee_target(c).await.unwrap();
-        assert_eq!(target, 10)
-    }
-
+        for (channel_size, ours, fee) in test_cases {
+            let c = wire::Channel {
+                amount_msat: primitives::Amount {msat: channel_size},
+                our_amount_msat: primitives::Amount {msat: ours},
+                connected: true,
+                peer_id: "039b9e260863e6d8735325b286931d73be9f8e766970ad4fe1cbcc470cd8964635".to_string(),
+                state: wire::ChannelState::CHANNELD_NORMAL,
+                funding_txid: "724ee70bc1670368c3db3c2ebed30d00fa595774356cebf509196c68a471ca91".to_string(),
+                funding_output: 0,
+            };
     
-    #[tokio::test]
-    async fn calculate_remotely_imbalanced_channel() {
-        Config {
-            dynamic_fees: true,
-            dynamic_fee_min: 10,
-            dynamic_fee_max: 500,
-        }.make_current();
-
-        let c = wire::Channel {
-            amount_msat: primitives::Amount {msat: 1000000},
-            our_amount_msat: primitives::Amount {msat: 0},
-            connected: true,
-            peer_id: "039b9e260863e6d8735325b286931d73be9f8e766970ad4fe1cbcc470cd8964635".to_string(),
-            state: wire::ChannelState::CHANNELD_NORMAL,
-            funding_txid: "724ee70bc1670368c3db3c2ebed30d00fa595774356cebf509196c68a471ca91".to_string(),
-            funding_output: 0,
-        };
-
-        let target = calculate_fee_target(c).await.unwrap();
-        assert_eq!(target, 500)
-    }
-
-    #[tokio::test]
-    async fn calculate_threshold_imbalanced_channel() {
-        Config {
-            dynamic_fees: true,
-            dynamic_fee_min: 10,
-            dynamic_fee_max: 500,
-        }.make_current();
-
-        let c = wire::Channel {
-            amount_msat: primitives::Amount {msat: 1_000_000},
-            our_amount_msat: primitives::Amount {msat: 200_000},
-            connected: true,
-            peer_id: "039b9e260863e6d8735325b286931d73be9f8e766970ad4fe1cbcc470cd8964635".to_string(),
-            state: wire::ChannelState::CHANNELD_NORMAL,
-            funding_txid: "724ee70bc1670368c3db3c2ebed30d00fa595774356cebf509196c68a471ca91".to_string(),
-            funding_output: 0,
-        };
-
-        let target = calculate_fee_target(c).await.unwrap();
-        assert_eq!(target, 500)
-    }
-
-
-    #[tokio::test]
-    async fn calculate_near_threshold_imbalanced_channel() {
-        Config {
-            dynamic_fees: true,
-            dynamic_fee_min: 10,
-            dynamic_fee_max: 500,
-        }.make_current();
-
-        let c = wire::Channel {
-            amount_msat: primitives::Amount {msat: 1_000_000},
-            our_amount_msat: primitives::Amount {msat: 205_000},
-            connected: true,
-            peer_id: "039b9e260863e6d8735325b286931d73be9f8e766970ad4fe1cbcc470cd8964635".to_string(),
-            state: wire::ChannelState::CHANNELD_NORMAL,
-            funding_txid: "724ee70bc1670368c3db3c2ebed30d00fa595774356cebf509196c68a471ca91".to_string(),
-            funding_output: 0,
-        };
-
-        let target = calculate_fee_target(c).await.unwrap();
-        assert_eq!(target, 496)
+            let target = calculate_fee_target(c).await.unwrap();
+            assert_eq!(target, fee)
+        }
     }
 
     #[tokio::test]
