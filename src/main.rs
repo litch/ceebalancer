@@ -1,13 +1,7 @@
-//! This is a test plugin used to verify that we can compile and run
-//! plugins using the Rust API against Core Lightning.
-
-// https://lightning.readthedocs.io/PLUGINS.html
-
 #[macro_use]
 extern crate serde_json;
 use serde::{Deserialize, Serialize};
 use cln_plugin::{options, Builder, Error, Plugin};
-
 
 // Try RPC Connectivity
 use cln_rpc::{model::GetinfoRequest, ClnRpc, Request};
@@ -17,20 +11,11 @@ use tokio;
 
 use ceebalancer::{Config, get_info, onchain_balance, report_onchain};
 use ceebalancer::primitives::Amount;
-// My stuff
-
-
-
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
 
     if let Some(plugin) = Builder::new((), tokio::io::stdin(), tokio::io::stdout())
-        // .option(options::ConfigOption::new(
-        //     "broadcast-ad-capacity",
-        //     options::Value::Boolean(false),
-        //     "Publish threshold capacity for fulfilling liquidity ads",
-        // ))
         .option(options::ConfigOption::new(
             "dynamic-fees",
             options::Value::Boolean(false),

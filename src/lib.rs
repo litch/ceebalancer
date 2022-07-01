@@ -101,14 +101,12 @@ pub async fn onchain_balance() -> Result<u64, Error> {
 
 pub async fn call(request: Request) -> Result<String, Error> {
     let path = Path::new("lightning-rpc");
-    // dbg!(&path);
-
     let mut rpc = ClnRpc::new(path).await?;
     let response = rpc
         .call(request.clone())
         .await
         .map_err(|e| anyhow!("Error calling {:?}: {:?}", request, e))?;
-    // dbg!(serde_json::to_string_pretty(&response)?);
+    
     Ok(serde_json::to_string_pretty(&response)?)
 }
 
