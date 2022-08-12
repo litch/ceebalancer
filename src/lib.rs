@@ -15,6 +15,7 @@ use std::collections::HashMap;
 
 pub mod primitives;
 pub mod wire;
+pub mod holes;
 
 use std::sync::{Arc, RwLock};
 
@@ -90,6 +91,23 @@ pub async fn onchain_balance() -> Result<u64, Error> {
     Ok(total)
 }
 
+// use holes::SetChannelRequest;
+
+pub async fn set_channel_fee(channel: wire::Channel, fee: u64) -> Result<(), Error> {
+    let req = Request::SetChannel(model::SetChannelRequest {
+        id: channel.short_channel_id.expect("Channel not ready yet"),
+        feeppm: Some(fee),
+        fee_base_msat: None,
+        enforce_delay: None,
+        htlc_max_msat: None,
+        htlc_min_msat: None,
+    });
+    let res = call(req).await?;
+    log::info!("Set channel: {:?}", res);
+
+    Ok(())
+}
+
 pub async fn call(request: Request) -> Result<String, Error> {
     let path = Path::new("lightning-rpc");
     let mut rpc = ClnRpc::new(path).await?;
@@ -160,6 +178,7 @@ mod test {
             state: wire::ChannelState::CHANNELD_NORMAL,
             funding_txid: "724ee70bc1670368c3db3c2ebed30d00fa595774356cebf509196c68a471ca91".to_string(),
             funding_output: 0,
+            short_channel_id: Some("123x123x0".to_string()),
         };
 
         let target = calculate_fee_target(c).await.unwrap();
@@ -191,6 +210,7 @@ mod test {
                 state: wire::ChannelState::CHANNELD_NORMAL,
                 funding_txid: "724ee70bc1670368c3db3c2ebed30d00fa595774356cebf509196c68a471ca91".to_string(),
                 funding_output: 0,
+                short_channel_id: Some("123x123x0".to_string()),
             };
     
             let target = calculate_fee_target(c).await.unwrap();

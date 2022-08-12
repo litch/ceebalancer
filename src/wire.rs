@@ -98,4 +98,6 @@ pub struct Channel {
     pub amount_msat: Amount,
     pub funding_txid: String,
     pub funding_output: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub short_channel_id: Option<String>,
 }

@@ -11,6 +11,11 @@ A node's channels will have dynamic fees set, whereby if the balance is very con
 This will be re-evaluated every time a forward happens.
 
 
+[ ] - On start
+[ ] - Loop through channels and evaluate fees for each
+[ ] - Determine fee rate
+[ ] - Set fee
+
 
 
 
