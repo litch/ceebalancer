@@ -15,7 +15,6 @@ use std::collections::HashMap;
 
 pub mod primitives;
 pub mod wire;
-pub mod holes;
 
 use std::sync::{Arc, RwLock};
 
@@ -90,8 +89,6 @@ pub async fn onchain_balance() -> Result<u64, Error> {
     
     Ok(total)
 }
-
-// use holes::SetChannelRequest;
 
 pub async fn set_channel_fee(channel: wire::Channel, fee: u64) -> Result<(), Error> {
     let req = Request::SetChannel(model::SetChannelRequest {
