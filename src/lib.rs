@@ -90,14 +90,13 @@ pub async fn onchain_balance() -> Result<u64, Error> {
     Ok(total)
 }
 
-pub async fn set_channel_fee(channel: wire::Channel, fee: u64) -> Result<(), Error> {
-    let req = Request::SetChannel(model::SetChannelRequest {
+pub async fn set_channel_fee(channel: wire::Channel, fee: u32) -> Result<(), Error> {
+    let req = Request::SetChannel(model::SetchannelRequest {
         id: channel.short_channel_id.expect("Channel not ready yet"),
         feeppm: Some(fee),
-        fee_base_msat: None,
-        enforce_delay: None,
-        htlc_max_msat: None,
-        htlc_min_msat: None,
+        feebase: None,
+        htlcmax: None,
+        htlcmin: None,
     });
     let res = call(req).await?;
     log::info!("Set channel: {:?}", res);
@@ -127,7 +126,7 @@ pub async fn report_onchain(balance: u64) -> Result<(), Error> {
     Ok(())
 }
 
-pub async fn calculate_fee_target(channel: wire::Channel) -> Result<u64, Error> {
+pub async fn calculate_fee_target(channel: &wire::Channel) -> Result<u32, Error> {
     let ours: f64 = channel.our_amount_msat.msat() as f64; 
     let total: f64 = channel.amount_msat.msat() as f64;
     let proportion = 1.0 - (ours / total);
@@ -150,7 +149,7 @@ pub async fn calculate_fee_target(channel: wire::Channel) -> Result<u64, Error> 
         ((nom / denom) * range) + min
     };
     
-    Ok(target.round() as u64)
+    Ok(target.round() as u32)
 }
 
 

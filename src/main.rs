@@ -9,7 +9,7 @@ use std::path::{Path};
 use anyhow::{anyhow, Context, Result};
 use tokio;
 
-use ceebalancer::{Config, get_info, onchain_balance, report_onchain, list_channels, set_channel_fee};
+use ceebalancer::{Config, get_info, onchain_balance, calculate_fee_target, list_channels, set_channel_fee};
 use ceebalancer::primitives::Amount;
 
 #[tokio::main]
@@ -50,7 +50,9 @@ async fn main() -> Result<(), anyhow::Error> {
         // Let's loop over the channels now and set a fee rate
 
         for channel in channels {
-            let res = set_channel_fee(channel, 1).await.unwrap();
+            let target = calculate_fee_target(&channel).await.unwrap();
+            log::info!("Calculated target rate for channel (ChannelID: {:?}, Target: {:?})", &channel.short_channel_id, &target);
+            let res = set_channel_fee(channel, target).await.unwrap();
             log::info!("Set a channel fee: {:?}", res);
         }
 
@@ -130,7 +132,6 @@ async fn coin_movement_handler(_plugin: Plugin<()>, v: serde_json::Value) -> Res
     let balance = onchain_balance().await.unwrap();
     log::debug!("Onchain Balance: {}", balance);
 
-    
     Ok(())
 }
 

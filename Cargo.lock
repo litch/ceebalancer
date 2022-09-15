@@ -124,7 +124,6 @@ dependencies = [
  "futures-util",
  "hex",
  "log",
- "native-tls",
  "serde",
  "serde_json",
  "tokio",
