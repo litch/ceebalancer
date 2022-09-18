@@ -50,15 +50,6 @@ pub async fn get_info() -> Result<String, Error> {
     Ok(call(req).await?)
 }
 
-// pub async fn list_channels() -> Result<Vec<wire::ListChannel>, Error> {
-//     let req = Request::ListChannels(model::ListchannelsRequest { short_channel_id: None, source: None, destination: None });
-//     let res = call(req).await.unwrap();
-//     let de: wire::ListChannelsResponse = serde_json::from_str(&res).unwrap();
-    
-//     Ok(de.result.channels)
-//     // dbg!(res);
-// }
-
 pub async fn list_nodes() -> Result<(), Error> {
     let req = Request::ListNodes(model::ListnodesRequest {id: None});
     let res = call(req).await?;
@@ -113,17 +104,6 @@ pub async fn call(request: Request) -> Result<String, Error> {
         .map_err(|e| anyhow!("Error calling {:?}: {:?}", request, e))?;
     
     Ok(serde_json::to_string_pretty(&response)?)
-}
-
-pub async fn report_onchain(balance: u64) -> Result<(), Error> {
-    let client = reqwest::Client::new();
-    let res = client.post("http://localhost:8877/report")
-        .json(&serde_json::json!({
-            "id": "some-node-id",
-            "balance": balance}))
-        .send()
-        .await?;
-    Ok(())
 }
 
 pub async fn calculate_fee_target(channel: &wire::Channel) -> Result<u32, Error> {

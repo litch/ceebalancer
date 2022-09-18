@@ -8,6 +8,8 @@ use cln_rpc::{model::GetinfoRequest, ClnRpc, Request};
 use std::path::{Path};
 use anyhow::{anyhow, Context, Result};
 use tokio;
+use std::time::Duration;
+use tokio::{task, time}; 
 
 use ceebalancer::{Config, get_info, onchain_balance, calculate_fee_target, list_channels, set_channel_fee};
 use ceebalancer::primitives::Amount;
@@ -44,23 +46,27 @@ async fn main() -> Result<(), anyhow::Error> {
         let balance = onchain_balance().await.unwrap();
         log::debug!("Onchain Balance: {}", balance);
 
-        let channels = list_channels().await.unwrap();
-        log::debug!("Channels: {:?}", channels);
-
         // Let's loop over the channels now and set a fee rate
+        // If this fails, we're not going to die and unload the plugin
+        set_channel_fees(&plugin).await;
 
-        for channel in channels {
-            let target = calculate_fee_target(&channel).await.unwrap();
-            log::info!("Calculated target rate for channel (ChannelID: {:?}, Target: {:?})", &channel.short_channel_id, &target);
-            let res = set_channel_fee(channel, target).await.unwrap();
-            log::info!("Set a channel fee: {:?}", res);
-        }
+        let loop_plugin = plugin.clone();
 
+        task::spawn(async move {
+            loop {
+                time::sleep(Duration::from_secs(5)).await;
+                log::info!("Iterated!");
+                set_channel_fees(&loop_plugin).await;
+            }
+        });
 
         plugin.join().await
+        
     } else {
         Ok(())
     }
+    // log::info!("I'm down here -not exactly sure why.");
+    // Ok(())
 }
 
 fn load_configuration(plugin: &Plugin<()>) -> Result<(), Error> {
@@ -143,8 +149,19 @@ async fn test_get_info(_plugin: &Plugin<()>) -> Result<(), Error> {
 
 }
 
-
 async fn forward_handler(_p: Plugin<()>, v: serde_json::Value) -> Result<(), Error> {
     log::debug!("Got a forward notification: {}", v);
+    Ok(())
+}
+
+async fn set_channel_fees(_p: &Plugin<()>) -> Result<(), Error> {
+    log::debug!("Setting channel fees");
+    let channels = list_channels().await.unwrap();
+    for channel in channels {
+        let target = calculate_fee_target(&channel).await.unwrap();
+        log::info!("Calculated target rate for channel (ChannelID: {:?}, Target: {:?})", &channel.short_channel_id, &target);
+        let res = set_channel_fee(channel, target).await.unwrap();
+        log::debug!("Set a channel fee: {:?}", res);
+    }
     Ok(())
 }
