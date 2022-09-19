@@ -49,7 +49,7 @@ async fn main() -> Result<(), anyhow::Error> {
         if config.dynamic_fees {
             task::spawn(async move {
                 loop {
-                    time::sleep(Duration::from_secs(config.dynamic_fee_interval)).await;
+                    time::sleep(Duration::from_secs(config.dynamic_fee_interval.try_into().unwrap())).await;
                     match set_channel_fees().await {
                         Ok(_) => {
                             log::debug!("Success");
