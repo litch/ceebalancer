@@ -1,4 +1,3 @@
-use std::path::{Path};
 use serde::{Deserialize, Serialize};
 
 use crate::primitives::{Amount, Address};

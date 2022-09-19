@@ -2,16 +2,12 @@ use cln_rpc::{
     model,
     ClnRpc, 
     Request,
-    Response,
 };
 use std::path::{Path};
 
-use reqwest;
 use anyhow::{anyhow, Error};
 
 use serde::{Deserialize, Serialize};
-
-use std::collections::HashMap;
 
 pub mod primitives;
 pub mod wire;
@@ -48,14 +44,6 @@ pub async fn get_info() -> Result<String, Error> {
     let req = Request::Getinfo(model::GetinfoRequest {});
     
     Ok(call(req).await?)
-}
-
-pub async fn list_nodes() -> Result<(), Error> {
-    let req = Request::ListNodes(model::ListnodesRequest {id: None});
-    let res = call(req).await?;
-    let de: wire::ListNodesResponse = serde_json::from_str(&res).unwrap();
-    
-    Ok(())
 }
 
 pub async fn list_channels() -> Result<Vec<wire::Channel>, Error> {

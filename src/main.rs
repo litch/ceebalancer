@@ -1,6 +1,5 @@
 #[macro_use]
 extern crate serde_json;
-use serde::{Deserialize};
 use cln_plugin::{options, Builder, Error, Plugin};
 
 // Try RPC Connectivity
@@ -10,7 +9,6 @@ use std::time::Duration;
 use tokio::{task, time}; 
 
 use ceebalancer::{Config, get_info, onchain_balance, set_channel_fees};
-use ceebalancer::primitives::Amount;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -33,7 +31,6 @@ async fn main() -> Result<(), anyhow::Error> {
         ))
         
         .subscribe("forward_event", forward_handler)
-        .subscribe("coin_movement", coin_movement_handler)
         .start()
         .await?
     {
@@ -66,8 +63,6 @@ async fn main() -> Result<(), anyhow::Error> {
     } else {
         Ok(())
     }
-    // log::info!("I'm down here -not exactly sure why.");
-    // Ok(())
 }
 
 fn load_configuration(plugin: &Plugin<()>) -> Result<Config, Error> {
@@ -112,4 +107,17 @@ fn load_configuration(plugin: &Plugin<()>) -> Result<Config, Error> {
     }.make_current();
     log::info!("Configuration loaded: {:?}", Config::current());
     Ok(c)
+}
+
+async fn test_get_info(_plugin: &Plugin<()>) -> Result<(), Error> {
+    log::debug!("Testing getinfo as a sanity check");
+    let info = get_info().await.unwrap();
+    log::info!("Got info: {}", info);
+    Ok(())
+
+}
+
+async fn forward_handler(_p: Plugin<()>, v: serde_json::Value) -> Result<(), Error> {
+    log::debug!("Got a forward notification: {}", v);
+    Ok(())
 }
