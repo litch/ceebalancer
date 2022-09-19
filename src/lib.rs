@@ -19,12 +19,16 @@ pub struct Config {
     pub dynamic_fees: bool,
     pub dynamic_fee_min: i64,
     pub dynamic_fee_max: i64,
+    pub dynamic_fee_interval: i64,
 }
 
 impl Config {
     pub fn default() -> Config {
         Config { 
-            dynamic_fees: false, dynamic_fee_min: 0, dynamic_fee_max: 1000
+            dynamic_fees: false, 
+            dynamic_fee_min: 0, 
+            dynamic_fee_max: 1000, 
+            dynamic_fee_interval: 3600
         }
     }
 

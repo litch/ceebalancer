@@ -16,9 +16,6 @@ This will be re-evaluated every time a forward happens.
 [ ] - Determine fee rate
 [ ] - Set fee
 
-
-
-
 ## To run this in dev mode:
 
 ```
@@ -29,3 +26,7 @@ or
 
 ```
 lightning-cli plugin start <full-path-to-this-plugin>
+
+## Release notes
+
+*0.1.0* - Initial release.  Very stripped down and simple at the moment.

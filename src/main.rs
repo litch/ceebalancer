@@ -29,6 +29,11 @@ async fn main() -> Result<(), anyhow::Error> {
             options::Value::Integer(1000),
             "Max fee for the dynamic range",
         ))
+        .option(options::ConfigOption::new(
+            "dynamic-fee-interval",
+            options::Value::Integer(3600),
+            "Update/evaluation interval",
+        ))
         
         .subscribe("forward_event", forward_handler)
         .start()
@@ -44,7 +49,7 @@ async fn main() -> Result<(), anyhow::Error> {
         if config.dynamic_fees {
             task::spawn(async move {
                 loop {
-                    time::sleep(Duration::from_secs(5)).await;
+                    time::sleep(Duration::from_secs(config.dynamic_fee_interval)).await;
                     match set_channel_fees().await {
                         Ok(_) => {
                             log::debug!("Success");
@@ -99,11 +104,20 @@ fn load_configuration(plugin: &Plugin<()>) -> Result<Config, Error> {
         }
         Some(o) => return Err(anyhow!("dynamic-fee-max is not a valid integer: {:?}.", o)),
     };
+    let dynamic_fee_interval = match plugin.option("dynamic-fee-interval") {
+        Some(options::Value::Integer(i)) => i,
+        None => {
+            log::info!("Missing 'dynamic-fee-interval' option.  Using default.");
+            c.dynamic_fee_interval
+        }
+        Some(o) => return Err(anyhow!("dynamic-fee-interval is not a valid integer: {:?}.", o)),
+    };
     
     Config {
         dynamic_fees,
         dynamic_fee_min,
         dynamic_fee_max,
+        dynamic_fee_interval,
     }.make_current();
     log::info!("Configuration loaded: {:?}", Config::current());
     Ok(c)
