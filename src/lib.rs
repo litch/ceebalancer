@@ -46,7 +46,7 @@ thread_local! {
 
 pub async fn get_info() -> Result<String, Error> {
     let req = Request::Getinfo(model::GetinfoRequest {});
-    // call(req).await?;
+    
     Ok(call(req).await?)
 }
 
@@ -81,7 +81,21 @@ pub async fn onchain_balance() -> Result<u64, Error> {
     Ok(total)
 }
 
-pub async fn set_channel_fee(channel: wire::Channel, fee: u32) -> Result<(), Error> {
+pub async fn set_channel_fees() -> Result<(), Error> {
+    log::debug!("Setting channel fees");
+    let channels = list_channels().await.unwrap();
+    for channel in channels {
+        let target = calculate_fee_target(&channel).await.unwrap();
+        log::info!("Calculated target rate for channel (ChannelID: {:?}, Target: {:?})", &channel.short_channel_id, &target);
+        let res = set_channel_fee(channel, target).await.unwrap();
+        log::debug!("Set a channel fee: {:?}", res);
+    }
+    Ok(())
+}
+
+
+
+async fn set_channel_fee(channel: wire::Channel, fee: u32) -> Result<(), Error> {
     let req = Request::SetChannel(model::SetchannelRequest {
         id: channel.short_channel_id.expect("Channel not ready yet"),
         feeppm: Some(fee),

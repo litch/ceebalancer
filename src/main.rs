@@ -1,17 +1,15 @@
 #[macro_use]
 extern crate serde_json;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize};
 use cln_plugin::{options, Builder, Error, Plugin};
 
 // Try RPC Connectivity
-use cln_rpc::{model::GetinfoRequest, ClnRpc, Request};
-use std::path::{Path};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use tokio;
 use std::time::Duration;
 use tokio::{task, time}; 
 
-use ceebalancer::{Config, get_info, onchain_balance, calculate_fee_target, list_channels, set_channel_fee};
+use ceebalancer::{Config, get_info, onchain_balance, set_channel_fees};
 use ceebalancer::primitives::Amount;
 
 #[tokio::main]
@@ -39,26 +37,29 @@ async fn main() -> Result<(), anyhow::Error> {
         .start()
         .await?
     {
-        load_configuration(&plugin).unwrap();
+        let config = load_configuration(&plugin).unwrap();
 
         test_get_info(&plugin).await.unwrap();
 
         let balance = onchain_balance().await.unwrap();
         log::debug!("Onchain Balance: {}", balance);
 
-        // Let's loop over the channels now and set a fee rate
-        // If this fails, we're not going to die and unload the plugin
-        set_channel_fees(&plugin).await;
-
-        let loop_plugin = plugin.clone();
-
-        task::spawn(async move {
-            loop {
-                time::sleep(Duration::from_secs(5)).await;
-                log::info!("Iterated!");
-                set_channel_fees(&loop_plugin).await;
-            }
-        });
+        if config.dynamic_fees {
+            task::spawn(async move {
+                loop {
+                    time::sleep(Duration::from_secs(5)).await;
+                    match set_channel_fees().await {
+                        Ok(_) => {
+                            log::debug!("Success");
+                        },
+                        Err(err) => {
+                            log::warn!("Error in set channel fees.  Proceeding: {:?}", err);
+                        },
+                    };
+                }
+            });
+        };
+        
 
         plugin.join().await
         
@@ -69,7 +70,7 @@ async fn main() -> Result<(), anyhow::Error> {
     // Ok(())
 }
 
-fn load_configuration(plugin: &Plugin<()>) -> Result<(), Error> {
+fn load_configuration(plugin: &Plugin<()>) -> Result<Config, Error> {
     let c = Config::default();
 
     let dynamic_fees = match plugin.option("dynamic-fees") {
@@ -110,58 +111,5 @@ fn load_configuration(plugin: &Plugin<()>) -> Result<(), Error> {
         dynamic_fee_max,
     }.make_current();
     log::info!("Configuration loaded: {:?}", Config::current());
-    Ok(())
-}
-
-#[derive(Debug, Deserialize)]
-pub struct CoinMovementValue {
-    pub coin_movement: CoinMovementMovement,
-    
-}
-
-#[derive(Debug, Deserialize)]
-pub struct CoinMovementMovement {
-    account_id: String,
-    blockheight: u16,
-    coin_type: String,
-    credit: Amount,
-    debit: Amount,
-    r#type: String,
-}
-
-async fn coin_movement_handler(_plugin: Plugin<()>, v: serde_json::Value) -> Result<(), Error> {
-    log::debug!("Received Coin Movement: {:?}", v);    
-    let de: CoinMovementValue = serde_json::from_value(v).unwrap();
-
-    log::debug!("Deserialized: {:?}", de);
-
-    let balance = onchain_balance().await.unwrap();
-    log::debug!("Onchain Balance: {}", balance);
-
-    Ok(())
-}
-
-async fn test_get_info(_plugin: &Plugin<()>) -> Result<(), Error> {
-    log::debug!("Testing getinfo as a sanity check");
-    let info = get_info().await.unwrap();
-    log::info!("Got info: {}", info);
-    Ok(())
-
-}
-
-async fn forward_handler(_p: Plugin<()>, v: serde_json::Value) -> Result<(), Error> {
-    log::debug!("Got a forward notification: {}", v);
-    Ok(())
-}
-
-async fn set_channel_fees(_p: &Plugin<()>) -> Result<(), Error> {
-    log::debug!("Setting channel fees");
-    let channels = list_channels().await.unwrap();
-    for channel in channels {
-        let target = calculate_fee_target(&channel).await.unwrap();
-        log::info!("Calculated target rate for channel (ChannelID: {:?}, Target: {:?})", &channel.short_channel_id, &target);
-        let res = set_channel_fee(channel, target).await.unwrap();
-        log::debug!("Set a channel fee: {:?}", res);
-    }
-    Ok(())
+    Ok(c)
 }
