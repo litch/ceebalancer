@@ -46,10 +46,11 @@ pub async fn set_channel_fees(config: Arc<Config>) -> Result<(), Error> {
     let channels = list_channels().await.unwrap();
     for channel in channels {
         log::debug!("Channel under consideration: {:?}", channel);
-        let target = calculate_fee_target(&channel, &config).await.unwrap();
-        log::info!("Calculated target rate for channel (ChannelID: {:?}, Target: {:?})", &channel.short_channel_id, &target);
         if channel.connected {
-            let res = set_channel_fee(channel, target).await
+            let fee_target = calculate_fee_target(&channel, &config).await.unwrap();
+            let htlc_max_msat_target = calculate_htlc_max(&channel, &config).await.unwrap();
+            log::info!("Calculated target rate for channel (ChannelID: {:?}, Target: {:?})", &channel.short_channel_id, &fee_target);
+            let res = set_channel_fee(channel, fee_target, htlc_max_msat_target).await
                 .map_err(|e| {
                     log::error!("Error setting a channel fee: {:?}", e);
                     e
@@ -62,7 +63,19 @@ pub async fn set_channel_fees(config: Arc<Config>) -> Result<(), Error> {
     Ok(())
 }
 
-pub async fn calculate_fee_target(channel: &wire::Channel, config: &Config) -> Result<u32, Error> {
+async fn calculate_htlc_max(channel: &wire::Channel, config: &Config) -> Result<u64, Error> {
+    let ours: u64 = channel.our_amount_msat.msat() as u64;
+    let values = [1_000, 100_000, 250_000, 1_000_000, 10_000_000, 50_000_000, 100_000_000, 250000000, 500_000_000, 1_000_000_000, 2000000000, 3000000000, 4000000000, 5000000000, 7500000000, 10000000000, 15000000000, 20000000000, 100000000];
+    let target = values.iter().rev().find(|&x| &ours >= x);
+    let t = match target {
+        Some(t) => t,
+        None => &ours,
+    };
+    let capped = (0.9*(*t as f64)).round();
+    Ok(capped as u64)
+}
+
+async fn calculate_fee_target(channel: &wire::Channel, config: &Config) -> Result<u32, Error> {
     let ours: f64 = channel.our_amount_msat.msat() as f64; 
     let total: f64 = channel.amount_msat.msat() as f64;
     let proportion = 1.0 - (ours / total);
@@ -97,12 +110,12 @@ mod test {
 
     #[tokio::test]
     async fn test_calculate_balanced_channel() {
-        Config {
+        let config = Config {
             dynamic_fees: true,
             dynamic_fee_interval: 100,
-            dynamic_fee_min: 1,
-            dynamic_fee_max: 200,
-        }.make_current();
+            dynamic_fee_min: 100,
+            dynamic_fee_max: 500,
+        };
 
         let c = wire::Channel {
             amount_msat: primitives::Amount {msat: 1000000},
@@ -115,18 +128,52 @@ mod test {
             short_channel_id: Some("123x123x0".to_string()),
         };
 
-        let target = calculate_fee_target(&c).await.unwrap();
-        assert_eq!(target, 255)   
+        let target = calculate_fee_target(&c, &config).await.unwrap();
+        assert_eq!(target, 300)   
+    }
+
+    #[tokio::test]
+    async fn calculate_htlc_max_channels() {
+        let config = Config {
+            dynamic_fees: true,
+            dynamic_fee_interval: 100,
+            dynamic_fee_min: 100,
+            dynamic_fee_max: 500,
+        };
+
+        let test_cases = vec![
+            (1000004, 900000),
+            (50_555_503, 45_000_000),
+            (101, 91),
+            (150_000, 90_000),
+            (1000, 900)
+        ];
+
+        for (ours, target) in test_cases {
+            let c = wire::Channel {
+                amount_msat: primitives::Amount {msat: 1000000000},
+                our_amount_msat: primitives::Amount {msat: ours},
+                connected: true,
+                peer_id: "039b9e260863e6d8735325b286931d73be9f8e766970ad4fe1cbcc470cd8964635".to_string(),
+                state: wire::ChannelState::CHANNELD_NORMAL,
+                funding_txid: "724ee70bc1670368c3db3c2ebed30d00fa595774356cebf509196c68a471ca91".to_string(),
+                funding_output: 0,
+                short_channel_id: Some("123x123x0".to_string()),
+            };
+    
+            let calc = calculate_htlc_max(&c, &config).await.unwrap();
+            assert_eq!(calc, target)
+        }
     }
 
     #[tokio::test]
     async fn calculate_imbalanced_channel() {
-        Config {
+        let config = Config {
             dynamic_fees: true,
             dynamic_fee_interval: 100,
             dynamic_fee_min: 10,
             dynamic_fee_max: 500,
-        }.make_current();
+        };
 
         let test_cases = vec![
             (1000, 1000, 10),
@@ -148,7 +195,7 @@ mod test {
                 short_channel_id: Some("123x123x0".to_string()),
             };
     
-            let target = calculate_fee_target(&c).await.unwrap();
+            let target = calculate_fee_target(&c, &config).await.unwrap();
             assert_eq!(target, fee)
         }
     }

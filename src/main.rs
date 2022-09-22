@@ -68,7 +68,6 @@ async fn main() -> Result<(), anyhow::Error> {
                 }
             });
         };
-        
 
         plugin.join().await
         
