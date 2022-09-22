@@ -55,6 +55,8 @@ pub async fn set_channel_fees() -> Result<(), Error> {
                     e
                 })?;
             log::debug!("Channel set {:?}", res);
+        } else {
+            log::info!("Skipping update as channel is not currently online");
         }
         
         
