@@ -11,10 +11,13 @@ A node's channels will have dynamic fees set, whereby if the balance is very con
 This will be re-evaluated every time a forward happens.
 
 
-[ ] - On start
-[ ] - Loop through channels and evaluate fees for each
-[ ] - Determine fee rate
-[ ] - Set fee
+[x] - On start
+[x] - Loop through channels and evaluate fees for each
+[x] - Determine fee rate
+[x] - Set fee
+
+<!-- Outstanding test case:
+Sep 22 12:30:15 lowfeecln lightningd[403642]: thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: Error calling SetChannel(SetchannelRequest { id: "737302x204x3", feebase: None, feeppm: Some(854), htlcmin: None, htlcmax: None }): RpcError { code: Some(-32602), message: "Short channel ID not active: '737302x204x3'" }', /home/litch/ceebalancer/src/lib.rs:50:58 -->
 
 ## To run this in dev mode:
 

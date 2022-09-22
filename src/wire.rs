@@ -85,7 +85,9 @@ pub struct Output {
 pub enum ChannelState {
     CHANNELD_AWAITING_LOCKIN,
     CHANNELD_NORMAL,
-    DUALOPEND_AWAITING_LOCKIN
+    DUALOPEND_AWAITING_LOCKIN,
+    FUNDING_SPEND_SEEN,
+    ONCHAIN,
 }
 
 #[derive(Debug, Deserialize)]

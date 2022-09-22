@@ -45,7 +45,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
         let balance = onchain_balance().await.unwrap();
         log::debug!("Onchain Balance: {}", balance);
-        log::debug!("This si my config {:?}", config);
+        log::debug!("This is my config {:?}", config);
         log::info!("I am all about dynamic fees: {:?}", config.dynamic_fees);
 
         if config.dynamic_fees {

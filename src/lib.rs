@@ -45,10 +45,19 @@ pub async fn set_channel_fees() -> Result<(), Error> {
     log::debug!("Setting channel fees");
     let channels = list_channels().await.unwrap();
     for channel in channels {
+        
         let target = calculate_fee_target(&channel).await.unwrap();
         log::info!("Calculated target rate for channel (ChannelID: {:?}, Target: {:?})", &channel.short_channel_id, &target);
-        let res = set_channel_fee(channel, target).await.unwrap();
-        log::debug!("Set a channel fee: {:?}", res);
+        if channel.connected {
+            let res = set_channel_fee(channel, target).await
+                .map_err(|e| {
+                    log::error!("Erorr setting a channel fee: {:?}", e);
+                    e
+                })?;
+            log::debug!("Channel set {:?}", res);
+        }
+        
+        
     }
     Ok(())
 }
