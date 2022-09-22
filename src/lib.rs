@@ -76,7 +76,7 @@ pub async fn calculate_fee_target(channel: &wire::Channel) -> Result<u32, Error>
     let min: f64 = Config::current().dynamic_fee_min as f64;
 
     let range = max - min;
-
+    log::debug!("Target calculation (Ours: {}, Total: {}, Proportion: {}, Range: {}", ours, total, proportion, range);
     let target = if proportion <= min_threshold_ratio {
         min
     } else if proportion >= max_threshold_ratio {
