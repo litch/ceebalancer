@@ -148,6 +148,7 @@ mod test {
     async fn test_calculate_balanced_channel() {
         Config {
             dynamic_fees: true,
+            dynamic_fee_interval: 100,
             dynamic_fee_min: 10,
             dynamic_fee_max: 500,
         }.make_current();
@@ -163,7 +164,7 @@ mod test {
             short_channel_id: Some("123x123x0".to_string()),
         };
 
-        let target = calculate_fee_target(c).await.unwrap();
+        let target = calculate_fee_target(&c).await.unwrap();
         assert_eq!(target, 255)   
     }
 
@@ -171,6 +172,7 @@ mod test {
     async fn calculate_imbalanced_channel() {
         Config {
             dynamic_fees: true,
+            dynamic_fee_interval: 100,
             dynamic_fee_min: 10,
             dynamic_fee_max: 500,
         }.make_current();
@@ -195,7 +197,7 @@ mod test {
                 short_channel_id: Some("123x123x0".to_string()),
             };
     
-            let target = calculate_fee_target(c).await.unwrap();
+            let target = calculate_fee_target(&c).await.unwrap();
             assert_eq!(target, fee)
         }
     }
