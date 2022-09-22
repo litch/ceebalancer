@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate serde_json;
 use cln_plugin::{options, Builder, Error, Plugin};
-
+use std::sync::{Arc};
 // Try RPC Connectivity
 use anyhow::{anyhow, Result};
 use tokio;
@@ -45,11 +45,18 @@ async fn main() -> Result<(), anyhow::Error> {
 
         let balance = onchain_balance().await.unwrap();
         log::debug!("Onchain Balance: {}", balance);
+        log::debug!("This si my config {:?}", config);
+        log::info!("I am all about dynamic fees: {:?}", config.dynamic_fees);
 
         if config.dynamic_fees {
+            if set_channel_fees().await.is_err() {
+                log::warn!("Error setting channel fees - continuing");
+            };
+
             task::spawn(async move {
                 loop {
                     time::sleep(Duration::from_secs(config.dynamic_fee_interval.try_into().unwrap())).await;
+                    log::info!("Initiating dynamic fee adjustment");
                     match set_channel_fees().await {
                         Ok(_) => {
                             log::debug!("Success");
@@ -70,7 +77,7 @@ async fn main() -> Result<(), anyhow::Error> {
     }
 }
 
-fn load_configuration(plugin: &Plugin<()>) -> Result<Config, Error> {
+fn load_configuration(plugin: &Plugin<()>) -> Result<Arc<Config>, Error> {
     let c = Config::default();
 
     let dynamic_fees = match plugin.option("dynamic-fees") {
@@ -120,7 +127,7 @@ fn load_configuration(plugin: &Plugin<()>) -> Result<Config, Error> {
         dynamic_fee_interval,
     }.make_current();
     log::info!("Configuration loaded: {:?}", Config::current());
-    Ok(c)
+    Ok(Config::current())
 }
 
 async fn test_get_info(_plugin: &Plugin<()>) -> Result<(), Error> {
