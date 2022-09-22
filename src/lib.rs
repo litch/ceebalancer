@@ -41,17 +41,17 @@ thread_local! {
 }
 
 
-pub async fn set_channel_fees() -> Result<(), Error> {
-    log::debug!("Setting channel fees");
+pub async fn set_channel_fees(config: Arc<Config>) -> Result<(), Error> {
+    log::debug!("Setting channel fees config: {:?}", config);
     let channels = list_channels().await.unwrap();
     for channel in channels {
         log::debug!("Channel under consideration: {:?}", channel);
-        let target = calculate_fee_target(&channel).await.unwrap();
+        let target = calculate_fee_target(&channel, &config).await.unwrap();
         log::info!("Calculated target rate for channel (ChannelID: {:?}, Target: {:?})", &channel.short_channel_id, &target);
         if channel.connected {
             let res = set_channel_fee(channel, target).await
                 .map_err(|e| {
-                    log::error!("Erorr setting a channel fee: {:?}", e);
+                    log::error!("Error setting a channel fee: {:?}", e);
                     e
                 })?;
             log::debug!("Channel set {:?}", res);
@@ -62,7 +62,7 @@ pub async fn set_channel_fees() -> Result<(), Error> {
     Ok(())
 }
 
-pub async fn calculate_fee_target(channel: &wire::Channel) -> Result<u32, Error> {
+pub async fn calculate_fee_target(channel: &wire::Channel, config: &Config) -> Result<u32, Error> {
     let ours: f64 = channel.our_amount_msat.msat() as f64; 
     let total: f64 = channel.amount_msat.msat() as f64;
     let proportion = 1.0 - (ours / total);
@@ -70,10 +70,11 @@ pub async fn calculate_fee_target(channel: &wire::Channel) -> Result<u32, Error>
     let min_threshold_ratio = 0.2;
     let max_threshold_ratio = 0.8;
 
-    let max: f64 = Config::current().dynamic_fee_max as f64;
-    let min: f64 = Config::current().dynamic_fee_min as f64;
+    let max: f64 = config.dynamic_fee_max as f64;
+    let min: f64 = config.dynamic_fee_min as f64;
 
     let range = max - min;
+    log::debug!("Min {} Max {} Range {}", min, max, range);
     log::debug!("Target calculation (Ours: {}, Total: {}, Proportion: {}, Range: {}", ours, total, proportion, range);
     let target = if proportion <= min_threshold_ratio {
         min
@@ -99,8 +100,8 @@ mod test {
         Config {
             dynamic_fees: true,
             dynamic_fee_interval: 100,
-            dynamic_fee_min: 10,
-            dynamic_fee_max: 500,
+            dynamic_fee_min: 1,
+            dynamic_fee_max: 200,
         }.make_current();
 
         let c = wire::Channel {

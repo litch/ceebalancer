@@ -49,15 +49,15 @@ async fn main() -> Result<(), anyhow::Error> {
         log::info!("I am all about dynamic fees: {:?}", config.dynamic_fees);
 
         if config.dynamic_fees {
-            if set_channel_fees().await.is_err() {
-                log::warn!("Error setting channel fees - continuing");
-            };
+            // if set_channel_fees(config).await.is_err() {
+            //     log::warn!("Error setting channel fees - continuing");
+            // };
 
             task::spawn(async move {
                 loop {
                     time::sleep(Duration::from_secs(config.dynamic_fee_interval.try_into().unwrap())).await;
                     log::info!("Initiating dynamic fee adjustment");
-                    match set_channel_fees().await {
+                    match set_channel_fees(config.clone()).await {
                         Ok(_) => {
                             log::debug!("Success");
                         },
