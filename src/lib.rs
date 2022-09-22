@@ -45,7 +45,7 @@ pub async fn set_channel_fees() -> Result<(), Error> {
     log::debug!("Setting channel fees");
     let channels = list_channels().await.unwrap();
     for channel in channels {
-        
+        log::debug!("Channel under consideration: {:?}", channel);
         let target = calculate_fee_target(&channel).await.unwrap();
         log::info!("Calculated target rate for channel (ChannelID: {:?}, Target: {:?})", &channel.short_channel_id, &target);
         if channel.connected {
@@ -58,8 +58,6 @@ pub async fn set_channel_fees() -> Result<(), Error> {
         } else {
             log::info!("Skipping update as channel is not currently online");
         }
-        
-        
     }
     Ok(())
 }
