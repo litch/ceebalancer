@@ -1,23 +1,48 @@
 
+# Why?
 
-## Why?
+This has been somewhat experimental.  Some bits of me learning Rust, and some bits of trying to build a "good enough" liquidity management toolchain.
 
-This has been somewhat experimental.
+# Usage
+
+## Configuration
+
+- `dynamic-fees` this parameter controls whether the system runs at all
+- `dynamic-fee-min` this parameter is the minimum fee rate for a channel, default: 0
+- `dynamic-fee-max` this parameter is the minimum fee rate for a channel, default: 1000
+- `dynamic-fee-interval` this parameter is the periodicity for fee adjustments (in seconds), default: 3600 (1 hour)
+
+## Interaction
+
+- `lightning-cli ceebalancer-adjust` this will automatically trigger a run (useful for doing an initial state, since we don't run at startup?)
+
+# Development
+
 
 ### Objective 1
 
 A node's channels will have dynamic fees set, whereby if the balance is very concentrated locally, the fee rate will be very low, if the balance is concentrated remotely, the fee rate will be higher.
 
-This will be re-evaluated every time a forward happens.
+- [x] On start
+- [x] Loop through channels and evaluate fees for each
+- [x] Determine fee rate
+- [x] Set fee
+- [x] Periodically set the fee rate
 
+### Objective 2
 
-[x] - On start
-[x] - Loop through channels and evaluate fees for each
-[x] - Determine fee rate
-[x] - Set fee
+Use the htlc_max parameter to try to reduce local_failed payments.  Basically using the valves idea Rene published.  Periodically re-set the htlc_max to ensure that the node will only receive payments it's able to route.
 
-<!-- Outstanding test case:
-Sep 22 12:30:15 lowfeecln lightningd[403642]: thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: Error calling SetChannel(SetchannelRequest { id: "737302x204x3", feebase: None, feeppm: Some(854), htlcmin: None, htlcmax: None }): RpcError { code: Some(-32602), message: "Short channel ID not active: '737302x204x3'" }', /home/litch/ceebalancer/src/lib.rs:50:58 -->
+- [x] Done
+
+#### Note
+
+As currently configured, this leaks pretty much all channel privacy info - you can very much compose a fairly decent resolution of a node's entire liquidity profile from the fee info & htlc_maxes.
+
+### Next up
+
+- Fuzzing
+- ??
 
 ## To run this in dev mode:
 
@@ -29,6 +54,7 @@ or
 
 ```
 lightning-cli plugin start <full-path-to-this-plugin>
+```
 
 ## Release notes
 

@@ -34,7 +34,8 @@ async fn main() -> Result<(), anyhow::Error> {
             options::Value::Integer(3600),
             "Update/evaluation interval",
         ))
-        
+        .rpcmethod("ceebalancer-adjust", "Manually triggers an adjustment run", adjust_handler)
+
         .subscribe("forward_event", forward_handler)
         .start()
         .await?
@@ -140,4 +141,10 @@ async fn test_get_info(_plugin: &Plugin<()>) -> Result<(), Error> {
 async fn forward_handler(_p: Plugin<()>, v: serde_json::Value) -> Result<(), Error> {
     log::debug!("Got a forward notification: {}", v);
     Ok(())
+}
+
+async fn adjust_handler(p: Plugin<()>, _v: serde_json::Value) -> Result<serde_json::Value, Error> {
+    let config = load_configuration(&p).unwrap();
+    set_channel_fees(config.clone()).await.unwrap();
+    Ok(json!("Success"))
 }
