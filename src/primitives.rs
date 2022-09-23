@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Error, Result};
-use serde::{Deserialize, Serialize, Deserializer, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Amount {

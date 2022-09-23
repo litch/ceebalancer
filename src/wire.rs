@@ -1,26 +1,25 @@
 use serde::{Deserialize, Serialize};
 
-use crate::primitives::{Amount, Address};
+use crate::primitives::{Address, Amount};
 
 #[derive(Debug, Deserialize)]
 pub struct GetInfoResponse {
     method: String,
-    pub result: GetInfoResponseInfo
+    pub result: GetInfoResponseInfo,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct GetInfoResponseInfo {
-}
+pub struct GetInfoResponseInfo {}
 
 #[derive(Debug, Deserialize)]
 pub struct ListChannelsResponse {
     method: String,
-    pub result: ListChannelsResponseChannels
+    pub result: ListChannelsResponseChannels,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ListChannelsResponseChannels {
-    pub channels: Vec<ListChannel>
+    pub channels: Vec<ListChannel>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -34,12 +33,12 @@ pub struct ListChannel {
 #[derive(Debug, Deserialize)]
 pub struct ListNodesResponse {
     pub method: String,
-    pub result: ListNodesResponseNodes
+    pub result: ListNodesResponseNodes,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ListNodesResponseNodes {
-    pub nodes: Vec<ListNode>
+    pub nodes: Vec<ListNode>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -48,7 +47,7 @@ pub struct ListNode {
     pub addresses: Vec<Address>,
     pub last_timestamp: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub option_will_fund: Option<OptionWillFund>
+    pub option_will_fund: Option<OptionWillFund>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -61,17 +60,16 @@ pub struct OptionWillFund {
     pub compact_lease: String,
 }
 
-
 #[derive(Debug, Deserialize)]
 pub struct ListFundsResponse {
     method: String,
-    pub result: ListFundsResponseFunds
+    pub result: ListFundsResponseFunds,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ListFundsResponseFunds {
     pub outputs: Vec<Output>,
-    pub channels: Vec<Channel>
+    pub channels: Vec<Channel>,
 }
 
 #[derive(Debug, Deserialize)]

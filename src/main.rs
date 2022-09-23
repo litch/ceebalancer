@@ -1,18 +1,17 @@
 #[macro_use]
 extern crate serde_json;
 use cln_plugin::{options, Builder, Error, Plugin};
-use std::sync::{Arc};
+use std::sync::Arc;
 // Try RPC Connectivity
 use anyhow::{anyhow, Result};
-use tokio;
 use std::time::Duration;
-use tokio::{task, time}; 
+use tokio;
+use tokio::{task, time};
 
-use ceebalancer::{Config, get_info, onchain_balance, set_channel_fees};
+use ceebalancer::{get_info, onchain_balance, set_channel_fees, Config};
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-
     if let Some(plugin) = Builder::new((), tokio::io::stdin(), tokio::io::stdout())
         .option(options::ConfigOption::new(
             "dynamic-fees",
@@ -34,8 +33,11 @@ async fn main() -> Result<(), anyhow::Error> {
             options::Value::Integer(3600),
             "Update/evaluation interval",
         ))
-        .rpcmethod("ceebalancer-adjust", "Manually triggers an adjustment run", adjust_handler)
-
+        .rpcmethod(
+            "ceebalancer-adjust",
+            "Manually triggers an adjustment run",
+            adjust_handler,
+        )
         .subscribe("forward_event", forward_handler)
         .start()
         .await?
@@ -56,22 +58,24 @@ async fn main() -> Result<(), anyhow::Error> {
 
             task::spawn(async move {
                 loop {
-                    time::sleep(Duration::from_secs(config.dynamic_fee_interval.try_into().unwrap())).await;
+                    time::sleep(Duration::from_secs(
+                        config.dynamic_fee_interval.try_into().unwrap(),
+                    ))
+                    .await;
                     log::info!("Initiating dynamic fee adjustment");
                     match set_channel_fees(config.clone()).await {
                         Ok(_) => {
                             log::debug!("Success");
-                        },
+                        }
                         Err(err) => {
                             log::warn!("Error in set channel fees.  Proceeding: {:?}", err);
-                        },
+                        }
                     };
                 }
             });
         };
 
         plugin.join().await
-        
     } else {
         Ok(())
     }
@@ -117,15 +121,21 @@ fn load_configuration(plugin: &Plugin<()>) -> Result<Arc<Config>, Error> {
             log::info!("Missing 'dynamic-fee-interval' option.  Using default.");
             c.dynamic_fee_interval
         }
-        Some(o) => return Err(anyhow!("dynamic-fee-interval is not a valid integer: {:?}.", o)),
+        Some(o) => {
+            return Err(anyhow!(
+                "dynamic-fee-interval is not a valid integer: {:?}.",
+                o
+            ))
+        }
     };
-    
+
     Config {
         dynamic_fees,
         dynamic_fee_min,
         dynamic_fee_max,
         dynamic_fee_interval,
-    }.make_current();
+    }
+    .make_current();
     log::info!("Configuration loaded: {:?}", Config::current());
     Ok(Config::current())
 }
@@ -135,7 +145,6 @@ async fn test_get_info(_plugin: &Plugin<()>) -> Result<(), Error> {
     let info = get_info().await.unwrap();
     log::info!("Got info: {}", info);
     Ok(())
-
 }
 
 async fn forward_handler(_p: Plugin<()>, v: serde_json::Value) -> Result<(), Error> {

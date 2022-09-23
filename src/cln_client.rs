@@ -1,9 +1,5 @@
-use cln_rpc::{
-    model,
-    ClnRpc, 
-    Request,
-};
-use std::path::{Path};
+use cln_rpc::{model, ClnRpc, Request};
+use std::path::Path;
 
 use anyhow::{anyhow, Error};
 
@@ -11,28 +7,28 @@ use serde::{Deserialize, Serialize};
 
 use std::sync::{Arc, RwLock};
 
-use crate::{Config};
-use crate::wire;
 use crate::primitives;
+use crate::wire;
+use crate::Config;
 
 pub async fn get_info() -> Result<String, Error> {
     let req = Request::Getinfo(model::GetinfoRequest {});
-    
+
     Ok(call(req).await?)
 }
 
 pub async fn list_channels() -> Result<Vec<wire::Channel>, Error> {
-    let req = Request::ListFunds(model::ListfundsRequest { spent: Some(false)});
+    let req = Request::ListFunds(model::ListfundsRequest { spent: Some(false) });
     let res = call(req).await?;
     log::debug!("{}", &res);
 
     let de: wire::ListFundsResponse = serde_json::from_str(&res).unwrap();
-    
+
     Ok(de.result.channels)
 }
 
 pub async fn onchain_balance() -> Result<u64, Error> {
-    let req = Request::ListFunds(model::ListfundsRequest { spent: Some(false)});
+    let req = Request::ListFunds(model::ListfundsRequest { spent: Some(false) });
     let res = call(req).await?;
     let de: wire::ListFundsResponse = serde_json::from_str(&res).unwrap();
 
@@ -40,11 +36,15 @@ pub async fn onchain_balance() -> Result<u64, Error> {
     for output in de.result.outputs {
         total += output.amount_msat.msat();
     }
-    
+
     Ok(total)
 }
 
-pub async fn set_channel_fee(short_channel_id: &String, fee: u32, htlc_max_msat: u64) -> Result<(), Error> {
+pub async fn set_channel_fee(
+    short_channel_id: &String,
+    fee: u32,
+    htlc_max_msat: u64,
+) -> Result<(), Error> {
     let req = Request::SetChannel(model::SetchannelRequest {
         id: short_channel_id.to_string(),
         feeppm: Some(fee),
@@ -65,6 +65,6 @@ async fn call(request: Request) -> Result<String, Error> {
         .call(request.clone())
         .await
         .map_err(|e| anyhow!("Error calling {:?}: {:?}", request, e))?;
-    
+
     Ok(serde_json::to_string_pretty(&response)?)
 }
