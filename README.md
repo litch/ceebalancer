@@ -3,6 +3,24 @@
 
 This has been somewhat experimental.  Some bits of me learning Rust, and some bits of trying to build a "good enough" liquidity management toolchain.
 
+# What does this do?
+
+It will, periodically, do the following:
+
+- Get a list of channels
+- For each channel
+    - Calculate a "fee target" for fees based on the proportional channel balance.  It fits to a curve like this:
+```
+        _____
+       /
+      /
+_____/
+
+```
+        With an upper and lower threshold (0.2 and 0.8)
+    - Calculate an htlc_max for the channel that's something lower than the channel can actually send.  This leaks some info about the channel status
+    - Set the channel 
+
 # Usage
 
 *Note:* This will fire off a lot more gossip (channel_update) messages than your peers will reliably propogate. 
@@ -43,11 +61,7 @@ As currently configured, this leaks pretty much all channel privacy info - you c
 
 ### Next up
 
-- ?
-
-#### Pre-1.0
-
-- Fuzzing
+- Have some state to keep channels from updating in too small of increments, etc
 - ??
 
 ## To run this in dev mode:
@@ -70,3 +84,6 @@ lightning-cli plugin start <full-path-to-this-plugin>
 #### *0.1.1*
 - HTLC_MAX dynamically adjusted too
 - Provided a rpc hook for executing on demand
+
+#### *1.0.0*
+- Works, basically

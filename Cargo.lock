@@ -78,11 +78,11 @@ checksum = "2fff2a6927b3bb87f9595d67196a70493f627687a71d87a0d692242c33f58c11"
 
 [[package]]
 name = "ceebalancer"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "cln-plugin",
- "cln-rpc 0.1.0",
+ "cln-rpc 0.1.0 (git+https://github.com/litch/lightning?branch=setchannel)",
  "log",
  "reqwest",
  "serde",
@@ -118,21 +118,6 @@ dependencies = [
 [[package]]
 name = "cln-rpc"
 version = "0.1.0"
-dependencies = [
- "anyhow",
- "bytes",
- "futures-util",
- "hex",
- "log",
- "serde",
- "serde_json",
- "tokio",
- "tokio-util 0.6.10",
-]
-
-[[package]]
-name = "cln-rpc"
-version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "18fb71ceca239c83a06fb494028b4a6b7b38ad4dd9c0410b7ea6013b90e15045"
 dependencies = [
@@ -142,6 +127,22 @@ dependencies = [
  "hex",
  "log",
  "native-tls",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util 0.6.10",
+]
+
+[[package]]
+name = "cln-rpc"
+version = "0.1.0"
+source = "git+https://github.com/litch/lightning?branch=setchannel#88ab174dc8ea85545305ee71378e681ed3a8d512"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "futures-util",
+ "hex",
+ "log",
  "serde",
  "serde_json",
  "tokio",
