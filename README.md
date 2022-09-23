@@ -5,6 +5,8 @@ This has been somewhat experimental.  Some bits of me learning Rust, and some bi
 
 # Usage
 
+*Note:* This will fire off a lot more gossip (channel_update) messages than your peers will reliably propogate. 
+
 ## Configuration
 
 - `dynamic-fees` this parameter controls whether the system runs at all
@@ -41,6 +43,10 @@ As currently configured, this leaks pretty much all channel privacy info - you c
 
 ### Next up
 
+- ?
+
+#### Pre-1.0
+
 - Fuzzing
 - ??
 
@@ -58,4 +64,9 @@ lightning-cli plugin start <full-path-to-this-plugin>
 
 ## Release notes
 
-*0.1.0* - Initial release.  Very stripped down and simple at the moment.
+#### *0.1.0* 
+- Initial release.  Very stripped down and simple at the moment.
+
+#### *0.1.1*
+- HTLC_MAX dynamically adjusted too
+- Provided a rpc hook for executing on demand

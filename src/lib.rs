@@ -120,7 +120,7 @@ async fn calculate_fee_target(channel: &wire::Channel, config: &Config) -> Resul
         ((nom / denom) * range) + min
     };
     
-    Ok(target.round() as u32)
+    Ok(((target / 10.0).floor() * 10.0) as u32)
 }
 
 
@@ -150,7 +150,7 @@ mod test {
         };
 
         let target = calculate_fee_target(&c, &config).await.unwrap();
-        assert_eq!(target, 300)   
+        assert_eq!(target, 290)   
     }
 
     #[tokio::test]
@@ -199,8 +199,8 @@ mod test {
             (1000, 1000, 10),
             (1000, 0, 500),
             (1000, 200, 500),
-            (1000, 205, 496),
-            (1000, 795, 14)
+            (1000, 205, 490),
+            (1000, 795, 10)
         ];
 
         for (channel_size, ours, fee) in test_cases {
