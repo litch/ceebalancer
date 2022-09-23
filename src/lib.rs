@@ -46,16 +46,19 @@ pub async fn set_channel_fees(config: Arc<Config>) -> Result<(), Error> {
     let channels = list_channels().await.unwrap();
     for channel in channels {
         log::debug!("Channel under consideration: {:?}", channel);
+        
         if channel.connected {
+            let short_channel_id = &channel.short_channel_id.clone().expect("Short channel id not available");
             let fee_target = calculate_fee_target(&channel, &config).await.unwrap();
             let htlc_max_msat_target = calculate_htlc_max(&channel, &config).await.unwrap();
-            log::info!("Calculated target rate for channel (ChannelID: {:?}, Target: {:?})", &channel.short_channel_id, &fee_target);
-            let res = set_channel_fee(channel, fee_target, htlc_max_msat_target).await
+            log::debug!("Calculated target rate for channel (ChannelID: {:?}, Target: {:?})", &short_channel_id, &fee_target);
+            let res = set_channel_fee(short_channel_id, fee_target, htlc_max_msat_target).await
                 .map_err(|e| {
                     log::error!("Error setting a channel fee: {:?}", e);
                     e
                 })?;
-            log::debug!("Channel set {:?}", res);
+            log::info!("Channel set (ID: {:?} Fee: {}, Max HTLC: {})", &short_channel_id, fee_target, htlc_max_msat_target,);
+            log::debug!("Result: {:?}", res);
         } else {
             log::info!("Skipping update as channel is not currently online");
         }
@@ -65,7 +68,25 @@ pub async fn set_channel_fees(config: Arc<Config>) -> Result<(), Error> {
 
 async fn calculate_htlc_max(channel: &wire::Channel, config: &Config) -> Result<u64, Error> {
     let ours: u64 = channel.our_amount_msat.msat() as u64;
-    let values = [1_000, 100_000, 250_000, 1_000_000, 10_000_000, 50_000_000, 100_000_000, 250000000, 500_000_000, 1_000_000_000, 2000000000, 3000000000, 4000000000, 5000000000, 7500000000, 10000000000, 15000000000, 20000000000, 100000000];
+    let values = [
+        1_000, 
+        100_000, 
+        250_000, 
+        1_000_000, 
+        10_000_000, 
+        50_000_000, 
+        100_000_000, 
+        250_000_000, 
+        500_000_000, 
+        1_000_000_000, 
+        2_000_000_000, 
+        3_000_000_000, 
+        4_000_000_000, 
+        5_000_000_000, 
+        7_500_000_000, 
+       10_000_000_000, 
+       15_000_000_000, 
+       20_000_000_000];
     let target = values.iter().rev().find(|&x| &ours >= x);
     let t = match target {
         Some(t) => t,
@@ -142,11 +163,10 @@ mod test {
         };
 
         let test_cases = vec![
-            (1000004, 900000),
-            (50_555_503, 45_000_000),
-            (101, 91),
-            (150_000, 90_000),
-            (1000, 900)
+            (1_557_248_000, 900_000_000),
+            (7_305_243_000, 4_500_000_000),
+            (4_492_794_000, 3_600_000_000),
+            (12_630_110_000, 9_000_000_000),
         ];
 
         for (ours, target) in test_cases {

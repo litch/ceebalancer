@@ -44,9 +44,9 @@ pub async fn onchain_balance() -> Result<u64, Error> {
     Ok(total)
 }
 
-pub async fn set_channel_fee(channel: wire::Channel, fee: u32, htlc_max_msat: u64) -> Result<(), Error> {
+pub async fn set_channel_fee(short_channel_id: &String, fee: u32, htlc_max_msat: u64) -> Result<(), Error> {
     let req = Request::SetChannel(model::SetchannelRequest {
-        id: channel.short_channel_id.expect("Channel not ready yet"),
+        id: short_channel_id.to_string(),
         feeppm: Some(fee),
         feebase: None,
         htlcmax: Some(cln_rpc::primitives::Amount::from_msat(htlc_max_msat)),

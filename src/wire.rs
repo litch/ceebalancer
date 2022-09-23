@@ -81,7 +81,7 @@ pub struct Output {
     pub status: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub enum ChannelState {
     OPENINGD,
     CHANNELD_AWAITING_LOCKIN,
@@ -96,7 +96,7 @@ pub enum ChannelState {
     DUALOPEND_AWAITING_LOCKIN,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Channel {
     pub peer_id: String,
     pub connected: bool,
