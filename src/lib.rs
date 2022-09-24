@@ -15,7 +15,9 @@ pub struct Config {
     pub dynamic_fees: bool,
     pub dynamic_fee_min: i64,
     pub dynamic_fee_max: i64,
-    pub dynamic_fee_interval: i64,
+    pub dynamic_fee_threshold: f32,
+    pub dynamic_fee_width: i64,
+    pub dynamic_fee_update_interval: i64,
 }
 
 impl Config {
@@ -24,7 +26,9 @@ impl Config {
             dynamic_fees: false,
             dynamic_fee_min: 0,
             dynamic_fee_max: 1000,
-            dynamic_fee_interval: 3600,
+            dynamic_fee_threshold: 0.2,
+            dynamic_fee_width: 200,
+            dynamic_fee_update_interval: 7200,
         }
     }
 
@@ -117,11 +121,13 @@ async fn calculate_fee_target(channel: &wire::Channel, config: &Config) -> Resul
     let total: f64 = channel.amount_msat.msat() as f64;
     let proportion = 1.0 - (ours / total);
 
-    let min_threshold_ratio = 0.2;
-    let max_threshold_ratio = 0.8;
+    let min_threshold_ratio: f64 = config.dynamic_fee_threshold as f64;
+    let max_threshold_ratio: f64 = 1.0 - config.dynamic_fee_threshold as f64;
 
     let max: f64 = config.dynamic_fee_max as f64;
     let min: f64 = config.dynamic_fee_min as f64;
+
+    let width = config.dynamic_fee_width as f64;
 
     let range = max - min;
     log::debug!("Min {} Max {} Range {}", min, max, range);
@@ -142,7 +148,7 @@ async fn calculate_fee_target(channel: &wire::Channel, config: &Config) -> Resul
         ((nom / denom) * range) + min
     };
 
-    Ok(((target / 10.0).floor() * 10.0) as u32)
+    Ok(((target / width).floor() * width) as u32)
 }
 
 #[cfg(test)]
@@ -151,36 +157,12 @@ mod test {
     use serde_json::json;
 
     #[tokio::test]
-    async fn test_calculate_balanced_channel() {
-        let config = Config {
-            dynamic_fees: true,
-            dynamic_fee_interval: 100,
-            dynamic_fee_min: 100,
-            dynamic_fee_max: 500,
-        };
-
-        let c = wire::Channel {
-            amount_msat: primitives::Amount { msat: 1000000 },
-            our_amount_msat: primitives::Amount { msat: 500000 },
-            connected: true,
-            peer_id: "039b9e260863e6d8735325b286931d73be9f8e766970ad4fe1cbcc470cd8964635"
-                .to_string(),
-            state: wire::ChannelState::CHANNELD_NORMAL,
-            funding_txid: "724ee70bc1670368c3db3c2ebed30d00fa595774356cebf509196c68a471ca91"
-                .to_string(),
-            funding_output: 0,
-            short_channel_id: Some("123x123x0".to_string()),
-        };
-
-        let target = calculate_fee_target(&c, &config).await.unwrap();
-        assert_eq!(target, 290)
-    }
-
-    #[tokio::test]
     async fn calculate_htlc_max_channels() {
         let config = Config {
             dynamic_fees: true,
-            dynamic_fee_interval: 100,
+            dynamic_fee_update_interval: 100,
+            dynamic_fee_width: 10,
+            dynamic_fee_threshold: 0.2,
             dynamic_fee_min: 100,
             dynamic_fee_max: 500,
         };
@@ -215,7 +197,9 @@ mod test {
     async fn calculate_imbalanced_channel() {
         let config = Config {
             dynamic_fees: true,
-            dynamic_fee_interval: 100,
+            dynamic_fee_update_interval: 100,
+            dynamic_fee_width: 10,
+            dynamic_fee_threshold: 0.2,
             dynamic_fee_min: 10,
             dynamic_fee_max: 500,
         };

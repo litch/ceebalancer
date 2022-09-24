@@ -29,8 +29,18 @@ async fn main() -> Result<(), anyhow::Error> {
             "Max fee for the dynamic range",
         ))
         .option(options::ConfigOption::new(
-            "dynamic-fee-interval",
-            options::Value::Integer(3600),
+            "dynamic-fee-threshold",
+            options::Value::Integer(20),
+            "Channel threshold for payment adjustment (0-100)",
+        ))
+        .option(options::ConfigOption::new(
+            "dynamic-fee-width",
+            options::Value::Integer(100),
+            "Fee step size",
+        ))
+        .option(options::ConfigOption::new(
+            "dynamic-fee-update-interval",
+            options::Value::Integer(7200),
             "Update/evaluation interval",
         ))
         .rpcmethod(
@@ -45,14 +55,10 @@ async fn main() -> Result<(), anyhow::Error> {
         let config = load_configuration(&plugin).unwrap();
 
         if config.dynamic_fees {
-            // if set_channel_fees(config).await.is_err() {
-            //     log::warn!("Error setting channel fees - continuing");
-            // };
-
             task::spawn(async move {
                 loop {
                     time::sleep(Duration::from_secs(
-                        config.dynamic_fee_interval.try_into().unwrap(),
+                        config.dynamic_fee_update_interval.try_into().unwrap(),
                     ))
                     .await;
                     log::info!("Initiating dynamic fee adjustment");
@@ -108,11 +114,37 @@ fn load_configuration(plugin: &Plugin<()>) -> Result<Arc<Config>, Error> {
         }
         Some(o) => return Err(anyhow!("dynamic-fee-max is not a valid integer: {:?}.", o)),
     };
-    let dynamic_fee_interval = match plugin.option("dynamic-fee-interval") {
+    let dynamic_fee_threshold = match plugin.option("dynamic-fee-threshold") {
+        Some(options::Value::Integer(i)) => 100.0 / i as f32,
+        None => {
+            log::info!("Missing 'dynamic-fee-threshold' option.  Using default.");
+            c.dynamic_fee_threshold
+        }
+        Some(o) => {
+            return Err(anyhow!(
+                "dynamic-fee-threshold is not a valid integer: {:?}.",
+                o
+            ))
+        }
+    };
+    let dynamic_fee_width = match plugin.option("dynamic-fee-width") {
+        Some(options::Value::Integer(i)) => i,
+        None => {
+            log::info!("Missing 'dynamic-fee-width' option.  Using default.");
+            c.dynamic_fee_width
+        }
+        Some(o) => {
+            return Err(anyhow!(
+                "dynamic-fee-width is not a valid integer: {:?}.",
+                o
+            ))
+        }
+    };
+    let dynamic_fee_update_interval = match plugin.option("dynamic-fee-interval") {
         Some(options::Value::Integer(i)) => i,
         None => {
             log::info!("Missing 'dynamic-fee-interval' option.  Using default.");
-            c.dynamic_fee_interval
+            c.dynamic_fee_update_interval
         }
         Some(o) => {
             return Err(anyhow!(
@@ -122,11 +154,16 @@ fn load_configuration(plugin: &Plugin<()>) -> Result<Arc<Config>, Error> {
         }
     };
 
+    let dynamic_fee_threshold = 0.2;
+    let dynamic_fee_width = 50;
+
     Config {
         dynamic_fees,
         dynamic_fee_min,
         dynamic_fee_max,
-        dynamic_fee_interval,
+        dynamic_fee_threshold,
+        dynamic_fee_width,
+        dynamic_fee_update_interval,
     }
     .make_current();
     log::info!("Configuration loaded: {:?}", Config::current());
