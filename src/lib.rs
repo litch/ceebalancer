@@ -45,37 +45,44 @@ pub async fn set_channel_fees(config: Arc<Config>) -> Result<(), Error> {
     let channels = list_channels().await.unwrap();
     for channel in channels {
         log::debug!("Channel under consideration: {:?}", channel);
-
-        if channel.connected {
-            let short_channel_id = &channel
-                .short_channel_id
-                .clone()
-                .expect("Short channel id not available");
-            let fee_target = calculate_fee_target(&channel, &config).await.unwrap();
-            let htlc_max_msat_target = calculate_htlc_max(&channel, &config).await.unwrap();
-            log::debug!(
-                "Calculated target rate for channel (ChannelID: {:?}, Target: {:?})",
-                &short_channel_id,
-                &fee_target
-            );
-            let res = set_channel_fee(short_channel_id, fee_target, htlc_max_msat_target)
-                .await
-                .map_err(|e| {
-                    log::error!("Error setting a channel fee: {:?}", e);
-                    e
-                })?;
-            log::info!(
-                "Channel set (ID: {:?} Fee: {}, Max HTLC: {})",
-                &short_channel_id,
-                fee_target,
-                htlc_max_msat_target,
-            );
-            log::debug!("Result: {:?}", res);
-        } else {
-            log::info!("Skipping update as channel is not currently online");
-        }
+        match configure_channel(&channel, &config).await {
+            Ok(_) => log::debug!("Channel successfuly configured"),
+            Err(e) => log::error!("Error configuring channel: {:?}", e)
+        };
     }
     Ok(())
+}
+
+async fn configure_channel(channel: &wire::Channel, config: &Config) -> Result<(), Error> {
+    if channel.connected {
+        let short_channel_id = &channel
+            .short_channel_id
+            .clone().unwrap();
+        let fee_target = calculate_fee_target(&channel, &config).await.unwrap();
+        let htlc_max_msat_target = calculate_htlc_max(&channel, &config).await.unwrap();
+        log::debug!(
+            "Calculated target rate for channel (ChannelID: {:?}, Target: {:?})",
+            &short_channel_id,
+            &fee_target
+        );
+        set_channel_fee(short_channel_id, fee_target, htlc_max_msat_target)
+            .await
+            .map_err(|e| {
+                log::error!("Error setting a channel through client: {:?}", e);
+                e
+            })?;
+        log::info!(
+            "Channel set (ID: {:?} Fee: {}, Max HTLC: {})",
+            &short_channel_id,
+            fee_target,
+            htlc_max_msat_target,
+        );
+        
+    } else {
+        log::info!("Skipping update as channel is not currently online");
+    }
+    Ok(())
+
 }
 
 async fn calculate_htlc_max(channel: &wire::Channel, config: &Config) -> Result<u64, Error> {

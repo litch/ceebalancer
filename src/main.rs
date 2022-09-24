@@ -44,13 +44,6 @@ async fn main() -> Result<(), anyhow::Error> {
     {
         let config = load_configuration(&plugin).unwrap();
 
-        test_get_info(&plugin).await.unwrap();
-
-        let balance = onchain_balance().await.unwrap();
-        log::debug!("Onchain Balance: {}", balance);
-        log::debug!("This is my config {:?}", config);
-        log::info!("I am all about dynamic fees: {:?}", config.dynamic_fees);
-
         if config.dynamic_fees {
             // if set_channel_fees(config).await.is_err() {
             //     log::warn!("Error setting channel fees - continuing");
